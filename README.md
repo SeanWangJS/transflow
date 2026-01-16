@@ -18,7 +18,7 @@ pip install transflow
 Or install from source:
 
 ```bash
-git clone https://github.com/seanwang/transflow.git
+git clone https://github.com/SeanWangJS/transflow.git
 cd transflow
 pip install -e .
 ```
