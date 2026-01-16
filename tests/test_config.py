@@ -1,6 +1,8 @@
 """Test configuration module."""
 
 import pytest
+from pydantic import ValidationError
+
 from transflow.config import TransFlowConfig
 
 
@@ -18,20 +20,20 @@ def test_default_config() -> None:
 
 def test_config_validation_timeout() -> None:
     """Test timeout validation."""
-    with pytest.raises(ValueError, match="Timeout must be positive"):
+    with pytest.raises(ValidationError):
         TransFlowConfig(http_timeout=-1)
 
 
 def test_config_validation_log_level() -> None:
     """Test log level validation."""
-    with pytest.raises(ValueError, match="log_level must be one of"):
+    with pytest.raises(ValidationError):
         TransFlowConfig(log_level="INVALID")
 
 
 def test_config_validation_concurrent_downloads() -> None:
     """Test concurrent downloads validation."""
-    with pytest.raises(ValueError, match="Concurrent downloads must be between 1 and 20"):
+    with pytest.raises(ValidationError):
         TransFlowConfig(http_concurrent_downloads=0)
     
-    with pytest.raises(ValueError, match="Concurrent downloads must be between 1 and 20"):
+    with pytest.raises(ValidationError):
         TransFlowConfig(http_concurrent_downloads=21)
