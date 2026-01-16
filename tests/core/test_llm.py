@@ -34,7 +34,7 @@ class TestLLMClient:
 
         # Assert
         assert client.config == config
-        assert client.model == config.default_model
+        assert client.model == config.openai_model
         assert client.http_client is not None
 
     def test_init_with_custom_model(self) -> None:

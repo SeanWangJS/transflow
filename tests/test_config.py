@@ -10,7 +10,7 @@ def test_default_config() -> None:
     """Test default configuration values."""
     config = TransFlowConfig()
     
-    assert config.default_model == "gpt-4o"
+    assert config.openai_model == "gpt-4o"
     assert config.default_language == "zh"
     assert config.log_level == "INFO"
     assert config.http_timeout == 30

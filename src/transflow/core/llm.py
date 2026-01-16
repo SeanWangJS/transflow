@@ -23,7 +23,7 @@ class LLMClient:
             ValidationError: If API key is missing
         """
         self.config = config
-        self.model = model or config.default_model
+        self.model = model or config.openai_model
         self.logger = logging.getLogger("transflow.llm")
 
         if not config.openai_api_key:

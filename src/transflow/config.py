@@ -46,10 +46,10 @@ class TransFlowConfig(BaseSettings):
         description="OpenAI API base URL",
         alias="TRANSFLOW_OPENAI_BASE_URL",
     )
-    default_model: str = Field(
+    openai_model: str = Field(
         default="gpt-4o",
-        description="Default LLM model",
-        alias="TRANSFLOW_DEFAULT_MODEL",
+        description="OpenAI LLM model",
+        alias="TRANSFLOW_OPENAI_MODEL",
     )
     default_language: str = Field(
         default="zh",
