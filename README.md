@@ -302,19 +302,46 @@ mypy src/
 
 ### Running Tests
 
+The project implements a **three-layer testing strategy** for complete coverage:
+
+#### Layer 1: Unit Tests (Fast, Mock-based - ~2 sec)
 ```bash
-# Run all tests
-pytest
+# Run all unit tests (including core and utils)
+pytest tests/unit/ -v
 
-# Run specific test file
-pytest tests/unit/test_extractor.py
+# Run with coverage report
+pytest tests/unit/ --cov=transflow --cov-report=html
 
-# Run with verbose output
-pytest -v
-
-# Run only fast tests (skip slow ones)
-pytest -m "not slow"
+# Run specific module tests
+pytest tests/unit/core/ -v      # Core modules only
+pytest tests/unit/utils/ -v     # Utilities only
 ```
+
+#### Layer 2: Configuration Tests (No external deps - ~1 sec)
+```bash
+# Run configuration validation tests
+pytest tests/config/ -v
+
+# These validate base_url handling, env var loading, etc.
+```
+
+#### Layer 3: Integration Tests (Real API - optional, variable time)
+```bash
+# Set credentials first
+export TRANSFLOW_OPENAI_API_KEY=your_actual_key
+export TRANSFLOW_OPENAI_BASE_URL=http://192.168.5.233:8000/v1  # Optional
+
+# Run integration tests
+pytest tests/integration/ -v -m integration
+```
+
+#### Run All Tests
+```bash
+# Complete test suite (skips integration if credentials missing)
+pytest tests/ -v --cov=transflow --cov-report=html
+```
+
+**See [REAL_API_TESTING_STRATEGY.md](./REAL_API_TESTING_STRATEGY.md) for detailed guide on guaranteeing real API compatibility.**
 
 ## Architecture
 

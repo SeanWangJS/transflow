@@ -29,6 +29,13 @@ ENV/
 # IDE
 .vscode/
 .idea/
+
+# Environment files (never commit credentials!)
+.env
+.env.test
+.env.local
+.env.*.local
+.idea/
 *.swp
 *.swo
 *~

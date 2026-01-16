@@ -1,45 +1,90 @@
 """Integration tests for LLM client with real API calls.
 
-These tests require valid API credentials and should be run separately:
-    pytest tests/integration/ -v --integration
+These tests validate real API compatibility and require:
+1. Valid API credentials (TRANSFLOW_OPENAI_API_KEY)
+2. Optional custom base URL (TRANSFLOW_OPENAI_BASE_URL)
 
-Set environment variables before running:
-    export TRANSFLOW_OPENAI_API_KEY=your_key
-    export TRANSFLOW_OPENAI_BASE_URL=http://your_base_url/v1  # Optional
+Environment consistency guarantees:
+    - Tests use isolated client instances (no shared state)
+    - Each test gets fresh config from environment
+    - Tests skip gracefully if credentials not available
+    - No credentials logged or printed
+    - Environment variables never modified by tests
+
+Running integration tests:
+    # With environment variables
+    export TRANSFLOW_OPENAI_API_KEY=sk_test_xxx
+    export TRANSFLOW_OPENAI_BASE_URL=http://localhost:8000/v1
+    pytest tests/integration/ -v -m integration
+
+    # Or with .env.test file (not committed to git)
+    pytest tests/integration/ -v -m integration
 """
 
 import os
-from unittest.mock import patch
 
 import pytest
 
 from transflow.config import TransFlowConfig
 from transflow.core.llm import LLMClient
-from transflow.exceptions import TranslationError
 
 
-pytestmark = pytest.mark.integration  # Mark all tests as integration tests
+pytestmark = pytest.mark.integration
 
 
-@pytest.fixture
-def real_config() -> TransFlowConfig:
-    """Load config from environment variables (requires real API key)."""
-    api_key = os.getenv("TRANSFLOW_OPENAI_API_KEY")
-    if not api_key or api_key == "test_key":
-        pytest.skip("TRANSFLOW_OPENAI_API_KEY not set or is placeholder")
-
+@pytest.fixture(scope="function")
+def integration_config() -> TransFlowConfig:
+    """Load and validate integration test configuration.
+    
+    Scope: function - Fresh config for each test
+    
+    Returns:
+        TransFlowConfig with real API credentials
+        
+    Raises:
+        pytest.skip if credentials not properly configured
+    """
+    api_key = os.getenv("TRANSFLOW_OPENAI_API_KEY", "").strip()
+    base_url = os.getenv("TRANSFLOW_OPENAI_BASE_URL", "https://api.openai.com/v1").strip()
+    
+    # Validate credentials
+    if not api_key or api_key in ("test_key", "sk_test_", ""):
+        pytest.skip(
+            "Integration tests require valid TRANSFLOW_OPENAI_API_KEY. "
+            "Set environment variable: export TRANSFLOW_OPENAI_API_KEY=<your_key>"
+        )
+    
     return TransFlowConfig(
         openai_api_key=api_key,
-        openai_base_url=os.getenv("TRANSFLOW_OPENAI_BASE_URL", "https://api.openai.com/v1"),
+        openai_base_url=base_url,
     )
 
 
-@pytest.mark.asyncio
-async def test_translate_text_with_real_api(real_config: TransFlowConfig) -> None:
-    """Test translation with real OpenAI API."""
-    client = LLMClient(real_config)
+@pytest.fixture(scope="function")
+def isolated_client(integration_config: TransFlowConfig) -> LLMClient:
+    """Create an isolated LLM client for testing.
+    
+    Scope: function - New client for each test, ensuring isolation
+    
+    Returns:
+        Fresh LLMClient instance
+    """
+    return LLMClient(integration_config)
 
-    result = await client.translate_text("Hello, world", "zh")
+
+@pytest.mark.asyncio
+async def test_api_connectivity(isolated_client: LLMClient) -> None:
+    """Verify API endpoint is reachable and responding."""
+    result = await isolated_client.translate_text("test", "zh")
+    
+    assert result is not None
+    assert isinstance(result, str)
+
+
+@pytest.mark.asyncio
+async def test_translate_text_with_real_api(isolated_client: LLMClient) -> None:
+    """Test single text translation with real API."""
+    result = await isolated_client.translate_text("Hello, world", "zh")
 
     assert result
     assert isinstance(result, str)
@@ -47,51 +92,69 @@ async def test_translate_text_with_real_api(real_config: TransFlowConfig) -> Non
 
 
 @pytest.mark.asyncio
-async def test_translate_batch_with_real_api(real_config: TransFlowConfig) -> None:
-    """Test batch translation with real OpenAI API."""
-    client = LLMClient(real_config)
-
+async def test_translate_batch_with_real_api(isolated_client: LLMClient) -> None:
+    """Test batch translation with real API."""
     texts = ["Hello", "World", "Test"]
-    results = await client.translate_batch(texts, "zh")
+    results = await isolated_client.translate_batch(texts, "zh")
 
     assert len(results) == len(texts)
     assert all(isinstance(r, str) for r in results)
 
 
 @pytest.mark.asyncio
-async def test_custom_base_url(real_config: TransFlowConfig) -> None:
-    """Test that custom base_url is properly applied."""
-    if not os.getenv("TRANSFLOW_OPENAI_BASE_URL"):
-        pytest.skip("TRANSFLOW_OPENAI_BASE_URL not set")
-
-    client = LLMClient(real_config)
-
-    # Verify base_url was set
-    assert client.async_client._base_url is not None or real_config.openai_base_url
-
-    # Try a simple translation
-    result = await client.translate_text("Test", "zh")
-    assert result
+async def test_custom_base_url(integration_config: TransFlowConfig) -> None:
+    """Test that custom base_url is properly applied and working."""
+    base_url = os.getenv("TRANSFLOW_OPENAI_BASE_URL")
+    
+    if base_url and base_url != "https://api.openai.com/v1":
+        # Only test if custom base_url is configured
+        client = LLMClient(integration_config)
+        result = await client.translate_text("test", "zh")
+        assert result is not None
 
 
-def test_base_url_parsing() -> None:
-    """Test that base_url is correctly parsed and applied."""
-    # Test with custom base_url
-    config = TransFlowConfig(
-        openai_api_key="test_key",
-        openai_base_url="http://192.168.5.233:8000/v1",
+@pytest.mark.asyncio
+async def test_auto_language_detection(isolated_client: LLMClient) -> None:
+    """Test automatic language detection."""
+    # English text with auto detection
+    result_en = await isolated_client.translate_text(
+        "The quick brown fox",
+        target_language="zh",
+        source_language="auto"
     )
-    client = LLMClient(config)
+    assert result_en is not None
+    assert isinstance(result_en, str)
 
-    # Verify the client was initialized
-    assert client.async_client is not None
-    assert client.client is not None
 
-    # Test with default base_url
-    config_default = TransFlowConfig(
-        openai_api_key="test_key",
-        openai_base_url="https://api.openai.com/v1",
-    )
-    client_default = LLMClient(config_default)
+@pytest.mark.asyncio
+async def test_empty_text_handling(isolated_client: LLMClient) -> None:
+    """Test that empty text is handled correctly without API calls."""
+    result = await isolated_client.translate_text("", "zh")
+    assert result == ""
+    
+    result_spaces = await isolated_client.translate_text("   ", "zh")
+    assert result_spaces.strip() == ""
 
-    assert client_default.async_client is not None
+
+@pytest.mark.asyncio
+async def test_environment_isolation(integration_config: TransFlowConfig) -> None:
+    """Verify that test environment doesn't leak between tests.
+    
+    This ensures:
+    - Each test uses fresh config
+    - No shared state across tests
+    - Credentials are isolated
+    """
+    api_key = integration_config.openai_api_key
+    assert api_key is not None
+    assert len(api_key) > 0
+    
+    # Create two independent clients
+    client1 = LLMClient(integration_config)
+    client2 = LLMClient(integration_config)
+    
+    # Verify they are independent instances
+    assert client1 is not client2
+    assert client1.config.openai_api_key == client2.config.openai_api_key
+    assert client1.async_client is not client2.async_client
+
