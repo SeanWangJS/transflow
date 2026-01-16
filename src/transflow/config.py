@@ -15,37 +15,81 @@ class TransFlowConfig(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
+        populate_by_name=True,
     )
 
     # Firecrawl settings
-    firecrawl_api_key: str = Field(default="", description="Firecrawl API key")
-    firecrawl_timeout: int = Field(default=30, description="Request timeout in seconds")
+    firecrawl_api_key: str = Field(
+        default="",
+        description="Firecrawl API key",
+        alias="TRANSFLOW_FIRECRAWL_API_KEY",
+    )
+    firecrawl_timeout: int = Field(
+        default=30,
+        description="Request timeout in seconds",
+        alias="TRANSFLOW_FIRECRAWL_TIMEOUT",
+    )
     firecrawl_base_url: str = Field(
         default="https://api.firecrawl.dev/v1",
         description="Firecrawl API base URL",
+        alias="TRANSFLOW_FIRECRAWL_BASE_URL",
     )
 
     # LLM settings
-    openai_api_key: Optional[str] = Field(default=None, description="OpenAI API key")
+    openai_api_key: Optional[str] = Field(
+        default=None,
+        description="OpenAI API key",
+        alias="TRANSFLOW_OPENAI_API_KEY",
+    )
     openai_base_url: str = Field(
         default="https://api.openai.com/v1",
         description="OpenAI API base URL",
+        alias="TRANSFLOW_OPENAI_BASE_URL",
     )
-    default_model: str = Field(default="gpt-4o", description="Default LLM model")
-    default_language: str = Field(default="zh", description="Default target language")
+    default_model: str = Field(
+        default="gpt-4o",
+        description="Default LLM model",
+        alias="TRANSFLOW_DEFAULT_MODEL",
+    )
+    default_language: str = Field(
+        default="zh",
+        description="Default target language",
+        alias="TRANSFLOW_DEFAULT_LANGUAGE",
+    )
 
     # HTTP settings
-    http_timeout: int = Field(default=30, description="HTTP timeout in seconds")
-    http_max_retries: int = Field(default=3, description="Maximum HTTP retry attempts")
+    http_timeout: int = Field(
+        default=30,
+        description="HTTP timeout in seconds",
+        alias="TRANSFLOW_HTTP_TIMEOUT",
+    )
+    http_max_retries: int = Field(
+        default=3,
+        description="Maximum HTTP retry attempts",
+        alias="TRANSFLOW_HTTP_MAX_RETRIES",
+    )
     http_concurrent_downloads: int = Field(
         default=5,
         description="Maximum concurrent downloads",
+        alias="TRANSFLOW_HTTP_CONCURRENT_DOWNLOADS",
     )
 
     # Logging settings
-    log_level: str = Field(default="INFO", description="Logging level")
-    log_file: Optional[Path] = Field(default=None, description="Log file path")
-    log_json: bool = Field(default=False, description="Use JSON log format")
+    log_level: str = Field(
+        default="INFO",
+        description="Logging level",
+        alias="TRANSFLOW_LOG_LEVEL",
+    )
+    log_file: Optional[Path] = Field(
+        default=None,
+        description="Log file path",
+        alias="TRANSFLOW_LOG_FILE",
+    )
+    log_json: bool = Field(
+        default=False,
+        description="Use JSON log format",
+        alias="TRANSFLOW_LOG_JSON",
+    )
 
     @field_validator("log_level")
     @classmethod
