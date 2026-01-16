@@ -7,10 +7,12 @@ from pathlib import Path
 import typer
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.table import Table
 from typing_extensions import Annotated
 
 from transflow import __version__
 from transflow.config import load_config
+from transflow.config_manager import get_config_items, validate_config
 from transflow.config_wizard import ConfigWizard
 from transflow.core.bundler import AssetBundler
 from transflow.core.extractor import MarkdownExtractor
@@ -70,6 +72,110 @@ def init() -> None:
     except Exception as e:
         console.print(f"[red]✗ Setup failed:[/red] {e}")
         sys.exit(1)
+
+
+@app.command()
+def config(
+    show: Annotated[
+        bool,
+        typer.Option(
+            "--show",
+            help="Show current configuration",
+        ),
+    ] = False,
+    validate: Annotated[
+        bool,
+        typer.Option(
+            "--validate",
+            help="Validate configuration",
+        ),
+    ] = False,
+) -> None:
+    """
+    Manage and view TransFlow configuration.
+
+    Use --show to display all configuration values with sources.
+    Use --validate to check if configuration is correct.
+
+    Example:
+        transflow config --show
+        transflow config --validate
+    """
+    try:
+        if show:
+            _show_config()
+        elif validate:
+            _validate_config()
+        else:
+            # Default: show config
+            _show_config()
+
+    except Exception as e:
+        console.print(f"[red]✗ Error:[/red] {e}")
+        sys.exit(1)
+
+
+def _show_config() -> None:
+    """Display current configuration in a formatted table."""
+    items = get_config_items()
+
+    console.print("[bold cyan]TransFlow Configuration[/bold cyan]\n")
+
+    for category, config_items in items.items():
+        # Create table for each category
+        table = Table(title=category, show_header=True, header_style="bold magenta")
+        table.add_column("Key", style="cyan")
+        table.add_column("Value", style="green")
+        table.add_column("Source", style="dim")
+        table.add_column("Status", style="yellow")
+
+        for item in config_items:
+            # Determine status color
+            if "[MISSING]" in item.status_display():
+                status_style = "red"
+            elif "[SET]" in item.status_display():
+                status_style = "green"
+            else:
+                status_style = "yellow"
+
+            table.add_row(
+                item.key,
+                item.display_value(),
+                item.source_display(),
+                f"[{status_style}]{item.status_display()}[/{status_style}]",
+            )
+
+        console.print(table)
+        console.print()
+
+
+def _validate_config() -> None:
+    """Validate configuration and show issues."""
+    is_valid, warnings, errors = validate_config()
+
+    console.print("[bold cyan]Configuration Validation[/bold cyan]\n")
+
+    if is_valid:
+        console.print("[green]✓ Configuration is valid![/green]\n")
+    else:
+        console.print("[red]✗ Configuration has issues:[/red]\n")
+
+    if errors:
+        console.print("[bold red]Errors:[/bold red]")
+        for i, error in enumerate(errors, 1):
+            console.print(f"  {i}. {error}")
+        console.print()
+
+    if warnings:
+        console.print("[bold yellow]Warnings:[/bold yellow]")
+        for i, warning in enumerate(warnings, 1):
+            console.print(f"  {i}. {warning}")
+        console.print()
+
+    if not errors and not warnings:
+        console.print("No issues found.")
+
+    sys.exit(0 if is_valid else 1)
 
 
 @app.command()

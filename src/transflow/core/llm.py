@@ -81,6 +81,12 @@ class LLMClient:
                     {"role": "user", "content": prompt},
                 ],
                 temperature=0.3,
+                extra_body={
+                    "enable_thinking": False,
+                    "chat_template_kwargs":{
+                        "enable_thinking": False
+                    }
+                }                
             )
 
             translated = response.choices[0].message.content.strip()
@@ -138,6 +144,12 @@ class LLMClient:
                     {"role": "user", "content": prompt},
                 ],
                 temperature=0.3,
+                extra_body={
+                    "enable_thinking": False,
+                    "chat_template_kwargs":{
+                        "enable_thinking": False
+                    }
+                }
             )
 
             translated_combined = response.choices[0].message.content.strip()

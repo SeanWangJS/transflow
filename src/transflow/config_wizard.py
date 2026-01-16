@@ -66,6 +66,11 @@ class ConfigWizard:
             default=""
         )
         
+        openai_base_url = Prompt.ask(
+            "[yellow]OpenAI Base URL[/yellow] (for custom servers like Ollama, localai, etc.)",
+            default="https://api.openai.com/v1"
+        )
+        
         # Collect optional settings
         model = Prompt.ask(
             "[yellow]Default Model[/yellow]",
@@ -84,7 +89,7 @@ class ConfigWizard:
         )
         
         # Build .env content
-        content = cls._build_env_content(firecrawl_key, openai_key, model, language, log_level)
+        content = cls._build_env_content(firecrawl_key, openai_key, openai_base_url, model, language, log_level)
         
         # Write file
         env_path.write_text(content, encoding="utf-8")
@@ -111,6 +116,11 @@ class ConfigWizard:
             default=""
         )
         
+        openai_base_url = Prompt.ask(
+            "[yellow]OpenAI Base URL[/yellow] (for custom servers like Ollama, localai, etc.)",
+            default="https://api.openai.com/v1"
+        )
+        
         # Collect optional settings
         model = Prompt.ask(
             "[yellow]Default Model[/yellow]",
@@ -129,7 +139,7 @@ class ConfigWizard:
         )
         
         # Build env content for source command
-        content = cls._build_env_content(firecrawl_key, openai_key, model, language, log_level)
+        content = cls._build_env_content(firecrawl_key, openai_key, openai_base_url, model, language, log_level)
         
         # Write file
         config_path.write_text(content, encoding="utf-8")
@@ -143,6 +153,7 @@ class ConfigWizard:
     def _build_env_content(
         firecrawl_key: str,
         openai_key: str,
+        openai_base_url: str,
         model: str,
         language: str,
         log_level: str,
@@ -163,13 +174,15 @@ class ConfigWizard:
         else:
             lines.append("# TRANSFLOW_OPENAI_API_KEY=your_key_here")
         
+        # Always add base_url (either custom or default)
+        lines.append(f"TRANSFLOW_OPENAI_BASE_URL={openai_base_url}")
+        
         lines.extend([
             f"TRANSFLOW_OPENAI_MODEL={model}",
             f"TRANSFLOW_DEFAULT_LANGUAGE={language}",
             f"TRANSFLOW_LOG_LEVEL={log_level}",
             "",
             "# Optional settings",
-            "# TRANSFLOW_OPENAI_BASE_URL=https://api.openai.com/v1",
             "# TRANSFLOW_HTTP_TIMEOUT=30",
             "# TRANSFLOW_HTTP_MAX_RETRIES=3",
             "# TRANSFLOW_HTTP_CONCURRENT_DOWNLOADS=5",

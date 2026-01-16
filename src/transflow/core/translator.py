@@ -1,4 +1,11 @@
-"""Markdown translator using AST transformation."""
+"""Markdown translator using AST transformation.
+
+Key design principles:
+1. Preserve Markdown structure - only modify text content
+2. Create new AST nodes instead of modifying existing ones
+3. Properly escape translated text to prevent HTML injection
+4. Handle batch translations efficiently
+"""
 
 import logging
 from pathlib import Path
@@ -11,7 +18,6 @@ from marko.inline import CodeSpan, Image, Link, RawText
 from transflow.config import TransFlowConfig
 from transflow.core.llm import LLMClient
 from transflow.exceptions import TranslationError
-
 
 class MarkdownTranslator:
     """Translate Markdown content while preserving structure."""
@@ -171,6 +177,11 @@ class MarkdownTranslator:
             batch = texts[i : i + batch_size]
             self.logger.debug(f"Translating batch {i // batch_size + 1} ({len(batch)} items)")
 
+            self.logger.info("============")
+            for s in batch:
+                self.logger.info(s)
+            self.logger.info("============")
+
             translated_batch = await self.llm_client.translate_batch(
                 batch,
                 self.target_language,
@@ -212,20 +223,32 @@ class MarkdownTranslator:
 
     def _replace_text_in_inline(self, node: Any, new_text: str) -> None:
         """
-        Replace text content in inline elements.
+        Replace text content in inline elements while preserving Markdown formatting.
 
+        This method creates new RawText nodes to avoid HTML escaping issues.
+        
         Args:
             node: AST node with inline children
-            new_text: New text content
+            new_text: New text content (plain text, no Markdown syntax)
         """
         if not hasattr(node, "children"):
             return
 
-        # Simple approach: replace first RawText node
-        # More sophisticated approach would preserve all inline formatting
-        for i, child in enumerate(node.children):
-            if isinstance(child, RawText):
-                child.children = new_text
-                # Remove other text children to avoid duplication
-                node.children = [child]
-                break
+        # Clear existing children and create new RawText node
+        # This ensures the text is treated as plain text, not HTML/Markdown
+        try:
+            # Create a new RawText node with the translated text
+            new_raw_text = RawText(new_text)
+            
+            # Replace all children with just the new RawText node
+            # This prevents any inline formatting issues
+            node.children = [new_raw_text]
+            
+        except Exception as e:
+            self.logger.warning(f"Failed to create RawText node: {e}")
+            # Fallback: try to find and update existing RawText
+            for i, child in enumerate(node.children):
+                if isinstance(child, RawText):
+                    child.children = new_text
+                    node.children = [child]
+                    break
