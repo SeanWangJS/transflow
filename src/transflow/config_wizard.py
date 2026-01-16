@@ -164,7 +164,7 @@ class ConfigWizard:
             lines.append("# TRANSFLOW_OPENAI_API_KEY=your_key_here")
         
         lines.extend([
-            f"TRANSFLOW_DEFAULT_MODEL={model}",
+            f"TRANSFLOW_OPENAI_MODEL={model}",
             f"TRANSFLOW_DEFAULT_LANGUAGE={language}",
             f"TRANSFLOW_LOG_LEVEL={log_level}",
             "",

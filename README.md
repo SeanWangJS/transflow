@@ -122,7 +122,7 @@ TRANSFLOW_OPENAI_API_KEY=your_openai_key
 
 # Optional: Custom settings
 TRANSFLOW_OPENAI_BASE_URL=https://api.openai.com/v1
-TRANSFLOW_DEFAULT_MODEL=gpt-4o
+TRANSFLOW_OPENAI_MODEL=gpt-4o
 TRANSFLOW_DEFAULT_LANGUAGE=zh
 
 # Optional: Logging and HTTP

@@ -35,7 +35,8 @@ class TestLLMClient:
         # Assert
         assert client.config == config
         assert client.model == config.openai_model
-        assert client.http_client is not None
+        assert client.client is not None
+        assert client.async_client is not None
 
     def test_init_with_custom_model(self) -> None:
         """Test LLM client accepts custom model override."""
@@ -57,14 +58,12 @@ class TestLLMClient:
         client = LLMClient(config)
 
         mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "choices": [{"message": {"content": "你好，世界"}}]
-        }
+        mock_response.choices = [MagicMock(message=MagicMock(content="你好，世界"))]
 
         # Act
         with patch.object(
-            client.http_client,
-            "post",
+            client.async_client.chat.completions,
+            "create",
             new=AsyncMock(return_value=mock_response),
         ):
             result = await client.translate_text("Hello, world", "zh")
@@ -79,15 +78,15 @@ class TestLLMClient:
         config = TransFlowConfig(openai_api_key="test_key")
         client = LLMClient(config)
 
-        mock_post = AsyncMock()
+        mock_create = AsyncMock()
 
         # Act
-        with patch.object(client.http_client, "post", new=mock_post):
+        with patch.object(client.async_client.chat.completions, "create", new=mock_create):
             result = await client.translate_text("  ", "zh")
 
         # Assert
         assert result == "  "
-        mock_post.assert_not_called()
+        mock_create.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_translate_text_api_error_raises_translation_error(self) -> None:
@@ -98,8 +97,8 @@ class TestLLMClient:
 
         # Act & Assert
         with patch.object(
-            client.http_client,
-            "post",
+            client.async_client.chat.completions,
+            "create",
             new=AsyncMock(side_effect=Exception("API error")),
         ):
             with pytest.raises(TranslationError, match="Failed to translate text"):
@@ -113,20 +112,14 @@ class TestLLMClient:
         client = LLMClient(config)
 
         mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "choices": [
-                {
-                    "message": {
-                        "content": "你好\n\n---SPLIT---\n\n世界"
-                    }
-                }
-            ]
-        }
+        mock_response.choices = [
+            MagicMock(message=MagicMock(content="你好\n\n---SPLIT---\n\n世界"))
+        ]
 
         # Act
         with patch.object(
-            client.http_client,
-            "post",
+            client.async_client.chat.completions,
+            "create",
             new=AsyncMock(return_value=mock_response),
         ):
             result = await client.translate_batch(["Hello", "World"], "zh")
@@ -157,14 +150,12 @@ class TestLLMClient:
         client = LLMClient(config)
 
         mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "choices": [{"message": {"content": "你好"}}]
-        }
+        mock_response.choices = [MagicMock(message=MagicMock(content="你好"))]
 
         # Act
         with patch.object(
-            client.http_client,
-            "post",
+            client.async_client.chat.completions,
+            "create",
             new=AsyncMock(return_value=mock_response),
         ):
             result = await client.translate_batch(["Hello", "", ""], "zh")
@@ -184,19 +175,19 @@ class TestLLMClient:
 
         # First call (batch) returns mismatched splits
         mock_batch_response = MagicMock()
-        mock_batch_response.json.return_value = {
-            "choices": [{"message": {"content": "你好"}}]  # Only 1 instead of 2
-        }
+        mock_batch_response.choices = [
+            MagicMock(message=MagicMock(content="你好"))  # Only 1 instead of 2
+        ]
 
         # Individual calls return correct translations
         mock_individual_responses = [
-            MagicMock(json=lambda: {"choices": [{"message": {"content": "你好"}}]}),
-            MagicMock(json=lambda: {"choices": [{"message": {"content": "世界"}}]}),
+            MagicMock(choices=[MagicMock(message=MagicMock(content="你好"))]),
+            MagicMock(choices=[MagicMock(message=MagicMock(content="世界"))]),
         ]
 
         call_count = [0]
 
-        async def mock_post(*args, **kwargs):
+        async def mock_create(*args, **kwargs):
             if call_count[0] == 0:
                 call_count[0] += 1
                 return mock_batch_response
@@ -206,7 +197,9 @@ class TestLLMClient:
                 return mock_individual_responses[idx]
 
         # Act
-        with patch.object(client.http_client, "post", new=AsyncMock(side_effect=mock_post)):
+        with patch.object(
+            client.async_client.chat.completions, "create", new=AsyncMock(side_effect=mock_create)
+        ):
             result = await client.translate_batch(["Hello", "World"], "zh")
 
         # Assert

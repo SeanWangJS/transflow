@@ -1,11 +1,12 @@
 """LLM client for translation using OpenAI API."""
 
 import logging
-from typing import Any, Optional
+from typing import Optional
+
+from openai import AsyncOpenAI, OpenAI
 
 from transflow.config import TransFlowConfig
 from transflow.exceptions import APIError, TranslationError
-from transflow.utils.http import HTTPClient
 
 
 class LLMClient:
@@ -20,7 +21,7 @@ class LLMClient:
             model: Model name (uses config default if not provided)
 
         Raises:
-            ValidationError: If API key is missing
+            APIError: If API key is missing
         """
         self.config = config
         self.model = model or config.openai_model
@@ -29,13 +30,19 @@ class LLMClient:
         if not config.openai_api_key:
             raise APIError("OpenAI API key is required (TRANSFLOW_OPENAI_API_KEY)")
 
-        self.http_client = HTTPClient(
-            timeout=config.http_timeout,
-            max_retries=config.http_max_retries,
-            headers={
-                "Authorization": f"Bearer {config.openai_api_key}",
-                "Content-Type": "application/json",
-            },
+        # Initialize both sync and async clients
+        # Only set base_url if it's not the default OpenAI URL
+        base_url = None
+        if config.openai_base_url and config.openai_base_url != "https://api.openai.com/v1":
+            base_url = config.openai_base_url
+
+        self.client = OpenAI(
+            api_key=config.openai_api_key,
+            base_url=base_url,
+        )
+        self.async_client = AsyncOpenAI(
+            api_key=config.openai_api_key,
+            base_url=base_url,
         )
 
     async def translate_text(
@@ -64,23 +71,19 @@ class LLMClient:
         prompt = self._build_translation_prompt(text, target_language, source_language)
 
         try:
-            response = await self.http_client.post(
-                f"{self.config.openai_base_url}/chat/completions",
-                json={
-                    "model": self.model,
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": "You are a professional translator. Translate the given text accurately while preserving formatting and tone.",
-                        },
-                        {"role": "user", "content": prompt},
-                    ],
-                    "temperature": 0.3,
-                },
+            response = await self.async_client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a professional translator. Translate the given text accurately while preserving formatting and tone.",
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.3,
             )
 
-            data = response.json()
-            translated = data["choices"][0]["message"]["content"].strip()
+            translated = response.choices[0].message.content.strip()
 
             self.logger.debug(f"Translated: {text[:50]}... -> {translated[:50]}...")
 
@@ -125,23 +128,19 @@ class LLMClient:
         prompt = self._build_translation_prompt(combined_text, target_language, source_language)
 
         try:
-            response = await self.http_client.post(
-                f"{self.config.openai_base_url}/chat/completions",
-                json={
-                    "model": self.model,
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": "You are a professional translator. Translate the given text accurately while preserving the ---SPLIT--- markers exactly as they appear.",
-                        },
-                        {"role": "user", "content": prompt},
-                    ],
-                    "temperature": 0.3,
-                },
+            response = await self.async_client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a professional translator. Translate the given text accurately while preserving the ---SPLIT--- markers exactly as they appear.",
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.3,
             )
 
-            data = response.json()
-            translated_combined = data["choices"][0]["message"]["content"].strip()
+            translated_combined = response.choices[0].message.content.strip()
 
             # Split back into individual translations
             translated_texts = translated_combined.split("\n\n---SPLIT---\n\n")
