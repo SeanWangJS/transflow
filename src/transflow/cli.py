@@ -212,12 +212,15 @@ def download(
         transflow download https://example.com/article -o article.md
     """
     try:
-        # Setup logging
-        log_level = "DEBUG" if verbose else "INFO"
-        logger = TransFlowLogger.get_logger(level=log_level)
-
-        # Load configuration
+        # Load configuration first to get default log level
         config = load_config()
+
+        # Setup logging: verbose flag > env var > config default > INFO
+        if verbose:
+            log_level = "DEBUG"
+        else:
+            log_level = config.log_level
+        logger = TransFlowLogger.get_logger(level=log_level)
 
         # Create extractor
         extractor = MarkdownExtractor(config)
@@ -272,12 +275,12 @@ def translate(
         ),
     ] = "zh",
     model: Annotated[
-        str,
+        str | None,
         typer.Option(
             "--model",
-            help="LLM model to use (e.g., gpt-4o, deepseek-chat)",
+            help="LLM model to use (e.g., gpt-4o, deepseek-chat). Uses TRANSFLOW_OPENAI_MODEL if not specified.",
         ),
-    ] = "gpt-4o",
+    ] = None,
     verbose: Annotated[
         bool,
         typer.Option(
@@ -294,15 +297,21 @@ def translate(
         transflow translate -i raw.md -o trans.md --lang zh
     """
     try:
-        # Setup logging
-        log_level = "DEBUG" if verbose else "INFO"
-        logger = TransFlowLogger.get_logger(level=log_level)
-
-        # Load configuration
+        # Load configuration first to get default log level
         config = load_config()
 
+        # Setup logging: verbose flag > env var > config default > INFO
+        if verbose:
+            log_level = "DEBUG"
+        else:
+            log_level = config.log_level
+        logger = TransFlowLogger.get_logger(level=log_level)
+
+        # Use provided model or fall back to config default
+        effective_model = model or config.openai_model
+
         # Create translator
-        translator = MarkdownTranslator(config, model=model, target_language=lang)
+        translator = MarkdownTranslator(config, model=effective_model, target_language=lang)
 
         # Parse paths
         input_path = Path(input_file)
@@ -374,12 +383,15 @@ def bundle(
         transflow bundle -i article.md -o ./output/articles
     """
     try:
-        # Setup logging
-        log_level = "DEBUG" if verbose else "INFO"
-        logger = TransFlowLogger.get_logger(level=log_level)
-
-        # Load configuration
+        # Load configuration first to get default log level
         config = load_config()
+
+        # Setup logging: verbose flag > env var > config default > INFO
+        if verbose:
+            log_level = "DEBUG"
+        else:
+            log_level = config.log_level
+        logger = TransFlowLogger.get_logger(level=log_level)
 
         # Create bundler
         bundler = AssetBundler(config)

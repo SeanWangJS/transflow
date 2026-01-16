@@ -177,15 +177,20 @@ class MarkdownTranslator:
             batch = texts[i : i + batch_size]
             self.logger.debug(f"Translating batch {i // batch_size + 1} ({len(batch)} items)")
 
-            self.logger.info("============")
+            self.logger.debug("=" * 20 + "TRANSLATING" + "=" * 20)
             for s in batch:
-                self.logger.info(s)
-            self.logger.info("============")
+                self.logger.debug(s)
+            self.logger.debug("=" * 50)
 
             translated_batch = await self.llm_client.translate_batch(
                 batch,
                 self.target_language,
             )
+
+            self.logger.debug("=" * 20 + "TRANSLATED" + "=" * 20)
+            for s in translated_batch:
+                self.logger.debug(s)
+            self.logger.debug("=" * 50)
 
             # Map original to translated
             for original, translated in zip(batch, translated_batch):
